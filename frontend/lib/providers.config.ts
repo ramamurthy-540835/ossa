@@ -32,10 +32,12 @@ export const PROVIDERS: ProviderOption[] = [
     icon: 'G',
     color: '#60a5fa',
     models: [
-      { id: 'gemini-2.5-flash',   label: 'Gemini 2.5 Flash',   maxTokens: 8192,  defaultTemp: 0.3 },
-      { id: 'gemini-2.5-pro',     label: 'Gemini 2.5 Pro',     maxTokens: 8192,  defaultTemp: 0.4 },
-      { id: 'gemini-1.5-flash',   label: 'Gemini 1.5 Flash',   maxTokens: 8192,  defaultTemp: 0.3 },
-      { id: 'gemini-1.5-pro',     label: 'Gemini 1.5 Pro',     maxTokens: 8192,  defaultTemp: 0.4 },
+      { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash',         maxTokens: 8192,  defaultTemp: 0.3 },
+      { id: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro',           maxTokens: 8192,  defaultTemp: 0.4 },
+      { id: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash',         maxTokens: 8192,  defaultTemp: 0.3 },
+      { id: 'gemini-2.0-flash-lite',   label: 'Gemini 2.0 Flash-Lite',    maxTokens: 8192,  defaultTemp: 0.3 },
+      { id: 'gemini-3-pro-preview',    label: 'Gemini 3 Pro Preview',     maxTokens: 16384, defaultTemp: 0.4 },
+      { id: 'gemini-3-flash-preview',  label: 'Gemini 3 Flash Preview',   maxTokens: 8192,  defaultTemp: 0.3 },
     ],
   },
   {
@@ -55,10 +57,10 @@ export const PROVIDERS: ProviderOption[] = [
     icon: 'O',
     color: '#34d399',
     models: [
-      { id: 'gpt-4o',      label: 'GPT-4o',        maxTokens: 4096, defaultTemp: 0.3 },
-      { id: 'gpt-4o-mini', label: 'GPT-4o Mini',   maxTokens: 4096, defaultTemp: 0.3 },
-      { id: 'gpt-4-turbo', label: 'GPT-4 Turbo',   maxTokens: 4096, defaultTemp: 0.4 },
-      { id: 'o3-mini',     label: 'o3-mini',        maxTokens: 4096, defaultTemp: 0.3 },
+      { id: 'gpt-4o-mini', label: 'GPT-4o Mini',  maxTokens: 16384, defaultTemp: 0.3 },
+      { id: 'gpt-4o',      label: 'GPT-4o',        maxTokens: 16384, defaultTemp: 0.3 },
+      { id: 'o3-mini',     label: 'o3-mini',        maxTokens: 16384, defaultTemp: 0.3 },
+      { id: 'o1',          label: 'o1',             maxTokens: 16384, defaultTemp: 0.3 },
     ],
   },
   {
@@ -67,8 +69,8 @@ export const PROVIDERS: ProviderOption[] = [
     icon: 'Az',
     color: '#38bdf8',
     models: [
-      { id: 'gpt-4o',      label: 'GPT-4o (Azure)',       maxTokens: 4096, defaultTemp: 0.3 },
-      { id: 'gpt-4-turbo', label: 'GPT-4 Turbo (Azure)',  maxTokens: 4096, defaultTemp: 0.3 },
+      { id: 'gpt-4o',      label: 'GPT-4o (Azure)',      maxTokens: 16384, defaultTemp: 0.3 },
+      { id: 'gpt-4o-mini', label: 'GPT-4o Mini (Azure)', maxTokens: 16384, defaultTemp: 0.3 },
     ],
   },
   {
@@ -77,8 +79,10 @@ export const PROVIDERS: ProviderOption[] = [
     icon: 'V',
     color: '#fb923c',
     models: [
-      { id: 'gemini-2.5-flash-001', label: 'Gemini 2.5 Flash (Vertex)', maxTokens: 8192, defaultTemp: 0.3 },
-      { id: 'gemini-2.5-pro-001',   label: 'Gemini 2.5 Pro (Vertex)',   maxTokens: 8192, defaultTemp: 0.4 },
+      { id: 'gemini-2.5-flash-001',       label: 'Gemini 2.5 Flash (Vertex)',        maxTokens: 8192,  defaultTemp: 0.3 },
+      { id: 'gemini-2.5-pro-001',         label: 'Gemini 2.5 Pro (Vertex)',          maxTokens: 8192,  defaultTemp: 0.4 },
+      { id: 'gemini-3-pro-preview-001',   label: 'Gemini 3 Pro Preview (Vertex)',    maxTokens: 16384, defaultTemp: 0.4 },
+      { id: 'gemini-3-flash-preview-001', label: 'Gemini 3 Flash Preview (Vertex)',  maxTokens: 8192,  defaultTemp: 0.3 },
     ],
   },
 ]

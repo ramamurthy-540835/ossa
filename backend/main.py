@@ -751,6 +751,131 @@ async def get_audit_logs(execution_id: str = None):
     }
 
 
+# ── Model Intelligence endpoints ───────────────────────────────────────────────
+
+from ossa.multi_model_graph import MODEL_REGISTRY, TASK_TYPES, MULTI_MODEL_GRAPH
+
+@app.get("/api/models")
+async def list_models():
+    """Return all models with pricing and capability metadata."""
+    return {"models": MODEL_REGISTRY}
+
+
+@app.post("/api/analyze-task")
+async def analyze_task(payload: dict):
+    """Analyse user input and return task classification + model recommendation."""
+    user_input = payload.get("input", "")
+    if not user_input.strip():
+        raise HTTPException(status_code=422, detail="input required")
+
+    task_list = list(TASK_TYPES.keys())
+    prompt = f"""Classify this user request for an AI agent.
+
+Input: {user_input[:2000]}
+
+Task types: {task_list}
+
+Return JSON only:
+{{
+  "task_type": "<one of: {', '.join(task_list)}>",
+  "complexity": "low|medium|high",
+  "estimated_output_tokens": <integer 500-8000>,
+  "recommended_model": "<model id>",
+  "recommendation_reason": "<one sentence>",
+  "alternatives": [
+    {{"model": "<id>", "tradeoff": "<one sentence cost vs quality note>"}},
+    {{"model": "<id>", "tradeoff": "<one sentence>"}}
+  ]
+}}"""
+
+    api_key = settings.gemini_api_key or settings.google_api_key
+    from providers.gemini import GeminiProvider
+    provider = GeminiProvider(api_key, "gemini-2.5-flash", thinking_budget=0)
+    result = provider.call_sync("Return concise JSON only.", prompt, temperature=0.1, max_tokens=512)
+    if result["status"] != "success":
+        raise HTTPException(status_code=502, detail=result.get("error"))
+
+    raw = result["output"].strip()
+    if raw.startswith("```"):
+        nl = raw.find("\n"); raw = raw[nl + 1:] if nl != -1 else raw[3:]
+    if raw.endswith("```"): raw = raw[:-3].rstrip()
+    raw = raw.strip()
+
+    try:
+        data = json.loads(raw)
+    except Exception:
+        s = raw.find("{"); e = raw.rfind("}")
+        data = json.loads(raw[s:e + 1]) if s != -1 and e > s else {}
+
+    # Validate recommended model exists in registry; fall back to flash
+    if data.get("recommended_model") not in MODEL_REGISTRY:
+        task_type = data.get("task_type", "general")
+        data["recommended_model"] = TASK_TYPES.get(task_type, {}).get("recommend", "gemini-2.5-flash")
+
+    # Attach full model metadata for the recommendation
+    rec_model = data.get("recommended_model", "gemini-2.5-flash")
+    data["recommended_model_meta"] = MODEL_REGISTRY.get(rec_model, {})
+
+    return data
+
+
+@app.post("/api/agent/execute-multi")
+async def execute_multi_model(payload: dict):
+    """Run multi-model LangGraph execution: analyze→plan→execute→review→synthesize."""
+    manifest_name = payload.get("manifest_name", "")
+    user_input    = payload.get("input", "")
+
+    if not manifest_name or not user_input.strip():
+        raise HTTPException(status_code=422, detail="manifest_name and input required")
+
+    from ossa.manifest import ManifestLoader
+    loader = ManifestLoader(settings.manifests_dir)
+    manifest = loader.load(manifest_name)
+    if not manifest:
+        raise HTTPException(status_code=404, detail=f"Manifest not found: {manifest_name}")
+
+    import uuid
+    execution_id = str(uuid.uuid4())
+
+    # Run graph synchronously in a thread to not block the event loop
+    import asyncio
+    loop = asyncio.get_event_loop()
+
+    def run_graph():
+        state = {
+            "input": user_input,
+            "system_role": manifest.role or "",
+            "task_type": "",
+            "complexity": "",
+            "recommended_model": "gemini-2.5-flash",
+            "estimated_tokens": 2000,
+            "plan": "",
+            "primary_output": "",
+            "review_notes": "",
+            "final_output": "",
+            "models_used": [],
+            "stage_events": [],
+            "total_cost": 0.0,
+        }
+        result = MULTI_MODEL_GRAPH.invoke(state)
+        return result
+
+    result = await loop.run_in_executor(None, run_graph)
+
+    return {
+        "execution_id": execution_id,
+        "task_type":         result.get("task_type"),
+        "complexity":        result.get("complexity"),
+        "recommended_model": result.get("recommended_model"),
+        "plan":              result.get("plan"),
+        "output":            result.get("final_output"),
+        "review_notes":      result.get("review_notes"),
+        "models_used":       result.get("models_used", []),
+        "total_cost":        result.get("total_cost", 0),
+        "stage_events":      result.get("stage_events", []),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 

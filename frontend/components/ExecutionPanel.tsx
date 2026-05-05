@@ -6,6 +6,7 @@ import { useExecution } from '@/lib/hooks/useExecution'
 import { PROVIDERS, COMPLIANCE_OPTIONS, DATA_CLASSIFICATIONS, TRUST_TIERS, getProvider, ComplianceDetail } from '@/lib/providers.config'
 import { ComplianceChip } from '@/components/ComplianceChip'
 import { useCustomCompliance } from '@/lib/hooks/useCustomCompliance'
+import { ModelIntelligenceCard } from '@/components/ModelIntelligenceCard'
 
 const API_BASE = '/api'
 
@@ -108,10 +109,12 @@ export function ExecutionPanel({ manifest, execution, onManifestUpdate }: Props)
   const [loadingAiPrompts, setLoadingAiPrompts] = useState(false)
   const [genEditReqs, setGenEditReqs] = useState(false)
   const [genEditReqsError, setGenEditReqsError] = useState('')
+  const [multiModelOutput, setMultiModelOutput] = useState('')
   const { custom: customCompliance, add: addCustomCompliance, remove: removeCustomCompliance } = useCustomCompliance()
   const responseRef = useRef<HTMLDivElement>(null)
 
-  const { isLoading, error, responseText, events, startExecution, approveHITL, reset, executionId } = execution
+  const { isLoading, error, responseText: _responseText, events, startExecution, approveHITL, reset, executionId } = execution
+  const responseText = multiModelOutput || _responseText
 
   const hitlRequired = events.some((e: ExecutionEvent) => e.type === 'hitl_required') &&
     !events.some((e: ExecutionEvent) => e.type === 'hitl_approved') && !hitlDone
@@ -120,7 +123,7 @@ export function ExecutionPanel({ manifest, execution, onManifestUpdate }: Props)
     if (responseRef.current) responseRef.current.scrollTop = responseRef.current.scrollHeight
   }, [responseText])
 
-  useEffect(() => { setHitlDone(false); setInput(''); setAiPrompts([]) }, [manifest])
+  useEffect(() => { setHitlDone(false); setInput(''); setAiPrompts([]); setMultiModelOutput('') }, [manifest])
 
   async function fetchAiPrompts() {
     if (!manifest) return
@@ -175,7 +178,7 @@ export function ExecutionPanel({ manifest, execution, onManifestUpdate }: Props)
     await startExecution(manifest.name, input)
   }
 
-  function handleReset() { reset(); setInput(''); setHitlDone(false); setCopied(false) }
+  function handleReset() { reset(); setInput(''); setHitlDone(false); setCopied(false); setMultiModelOutput('') }
   async function handleApprove() { await approveHITL(); setHitlDone(true) }
 
   function openEdit() {
@@ -490,6 +493,13 @@ spec:
           )}
         </div>
       )}
+
+      {/* Model Intelligence — compare + multi-model run */}
+      <ModelIntelligenceCard
+        manifest={manifest}
+        input={input}
+        onUseOutput={(output) => setMultiModelOutput(output)}
+      />
 
       {/* AI prompt suggester */}
       {!responseText && !isLoading && (
