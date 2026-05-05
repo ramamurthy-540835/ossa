@@ -316,7 +316,8 @@ class OSSAAgentExecutor:
             if not api_key:
                 print("Warning: GEMINI_API_KEY not set")
                 return None
-            return GeminiProvider(api_key, llm_config.model)
+            # thinking_budget=0 disables extended thinking — cuts latency from 30s → 3-8s
+            return GeminiProvider(api_key, llm_config.model, thinking_budget=0)
 
         # More providers can be added here
         print(f"Warning: Unknown provider: {provider_name}")

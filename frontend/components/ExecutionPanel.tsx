@@ -118,6 +118,8 @@ export function ExecutionPanel({ manifest, execution, onManifestUpdate, stageMod
   const [genEditReqs, setGenEditReqs] = useState(false)
   const [genEditReqsError, setGenEditReqsError] = useState('')
   const [multiModelOutput, setMultiModelOutput] = useState('')
+  const [elapsed, setElapsed] = useState(0)
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { custom: customCompliance, add: addCustomCompliance, remove: removeCustomCompliance } = useCustomCompliance()
   const responseRef = useRef<HTMLDivElement>(null)
 
@@ -130,6 +132,16 @@ export function ExecutionPanel({ manifest, execution, onManifestUpdate, stageMod
   useEffect(() => {
     if (responseRef.current) responseRef.current.scrollTop = responseRef.current.scrollHeight
   }, [responseText])
+
+  useEffect(() => {
+    if (isLoading) {
+      setElapsed(0)
+      elapsedRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
+    } else {
+      if (elapsedRef.current) clearInterval(elapsedRef.current)
+    }
+    return () => { if (elapsedRef.current) clearInterval(elapsedRef.current) }
+  }, [isLoading])
 
   useEffect(() => { setHitlDone(false); setInput(''); setAiPrompts([]); setMultiModelOutput('') }, [manifest])
 
@@ -601,13 +613,18 @@ spec:
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)' }}>Response</span>
           {isLoading && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div className="blink" style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6' }} />
-              <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600 }}>Streaming from Gemini…</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="blink" style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600 }}>
+                {responseText ? `Streaming… ${responseText.length} chars` : 'Waiting for first token…'}
+              </span>
+              <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: elapsed > 15 ? '#f87171' : elapsed > 8 ? '#fbbf24' : 'rgba(255,255,255,0.3)', padding: '1px 7px', borderRadius: 6, background: 'rgba(255,255,255,0.05)' }}>
+                {elapsed}s
+              </span>
             </div>
           )}
           {responseText && !isLoading && (
-            <span style={{ fontSize: 11, color: '#34d399', fontWeight: 600 }}>✓ {responseText.length} chars received</span>
+            <span style={{ fontSize: 11, color: '#34d399', fontWeight: 600 }}>✓ {responseText.length} chars · {elapsed}s</span>
           )}
         </div>
         <div ref={responseRef} style={{ padding: '16px', minHeight: 140, maxHeight: 300, overflowY: 'auto', fontSize: 14, lineHeight: 1.8, color: responseText ? '#e2e8f0' : 'rgba(255,255,255,0.2)' }}>

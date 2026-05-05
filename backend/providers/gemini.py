@@ -74,13 +74,47 @@ class GeminiProvider(LLMProvider):
 
     async def call_stream(self, system_prompt: str, user_message: str,
                           temperature: float, max_tokens: int) -> AsyncGenerator[str, None]:
-        result = self.call_sync(system_prompt, user_message, temperature, max_tokens)
+        """Real token-by-token streaming via Gemini generate_content_stream."""
+        from google.genai import types
 
-        if result["status"] == "success":
-            text = result["output"]
-            chunk_size = 30
-            for i in range(0, len(text), chunk_size):
-                await asyncio.sleep(0.05)
-                yield text[i:i + chunk_size]
-        else:
-            yield f"Error: {result.get('error', 'Unknown error')}"
+        config_kwargs: dict = dict(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+        if self._thinking_budget >= 0:
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=self._thinking_budget
+            )
+
+        contents = f"{system_prompt}\n\nUser input:\n{user_message}"
+
+        try:
+            # Use thread executor so the sync iterator doesn't block the event loop
+            loop = asyncio.get_event_loop()
+            queue: asyncio.Queue = asyncio.Queue()
+
+            def _stream_in_thread():
+                try:
+                    for chunk in self._client.models.generate_content_stream(
+                        model=self.model,
+                        contents=contents,
+                        config=types.GenerateContentConfig(**config_kwargs),
+                    ):
+                        text = getattr(chunk, "text", None)
+                        if text:
+                            loop.call_soon_threadsafe(queue.put_nowait, text)
+                except Exception as exc:
+                    loop.call_soon_threadsafe(queue.put_nowait, f"\n\nError: {exc}")
+                finally:
+                    loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel
+
+            loop.run_in_executor(None, _stream_in_thread)
+
+            while True:
+                token = await queue.get()
+                if token is None:
+                    break
+                yield token
+
+        except Exception as e:
+            yield f"Error: {str(e)}"
