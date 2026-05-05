@@ -1,0 +1,16 @@
+{
+  "budget": {
+    "total_credits": 10,
+    "credits_used": 0.016575,
+    "daily_limit": 1,
+    "daily_used": 0.016575,
+    "daily_reset_date": "2026-05-05",
+    "alert_threshold": 0.8
+  },
+  "multi_model": {
+    "analyze_model": "gemini-2.5-flash",
+    "plan_model": "gemini-2.5-pro",
+    "execute_model": "auto",
+    "review_model": "gemini-2.5-flash"
+  }
+}
