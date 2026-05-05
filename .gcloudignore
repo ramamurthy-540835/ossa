@@ -2,7 +2,6 @@
 .gitignore
 README.md
 IMPLEMENTATION_SUMMARY.md
-docs/
 start.sh
 .pids/
 
