@@ -9,6 +9,7 @@ import { NewAgentModal } from '@/components/NewAgentModal'
 import { GuidedTour } from '@/components/GuidedTour'
 import { DocsViewer } from '@/components/DocsViewer'
 import { useExecution } from '@/lib/hooks/useExecution'
+import { useTheme } from '@/lib/hooks/useTheme'
 
 export default function Home() {
   const [selectedManifest, setSelectedManifest] = useState<OSSAManifest | null>(null)
@@ -19,6 +20,7 @@ export default function Home() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   const execution = useExecution()
+  const { theme, toggle: toggleTheme } = useTheme()
 
   const handleSelect = useCallback((manifest: OSSAManifest) => {
     setSelectedManifest(manifest)
@@ -85,6 +87,24 @@ export default function Home() {
           >
             📚 Docs
           </button>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            title={theme === 'ossa' ? 'Switch to Mastech skin' : 'Switch to OSSA skin'}
+            style={{
+              height: 32, padding: '0 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'all 0.2s',
+              background: theme === 'mastech' ? 'rgba(45,184,124,0.12)' : 'rgba(99,102,241,0.1)',
+              border: theme === 'mastech' ? '1px solid rgba(45,184,124,0.3)' : '1px solid rgba(99,102,241,0.25)',
+              color: theme === 'mastech' ? '#2db87c' : '#a5b4fc',
+            }}
+          >
+            <span style={{ fontSize: 13 }}>{theme === 'mastech' ? '◑' : '◐'}</span>
+            {theme === 'mastech' ? 'Mastech' : 'OSSA'}
+          </button>
+
           <button
             onClick={() => setShowTour(true)}
             title="Guided Tour — Aider / Codex / Claude agent styles"

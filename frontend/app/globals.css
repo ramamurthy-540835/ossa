@@ -113,6 +113,66 @@ body::before {
   z-index: 0;
 }
 
+/* ── Mastech "underground" skin ───────────────────────────────────────────── */
+[data-theme="mastech"] {
+  --bg-base:       #07101f;
+  --bg-surface:    #0e1a30;
+  --bg-card:       #152038;
+  --bg-hover:      #1c2d4a;
+  --border:        rgba(80,140,230,0.11);
+  --border-active: rgba(45,190,140,0.5);
+  --text-primary:  #d8ecff;
+  --text-secondary:#6a90b8;
+  --text-muted:    #324e6a;
+  --accent-blue:   #2db87c;
+  --accent-violet: #5b9ee8;
+  --accent-emerald:#3ecfa6;
+  --accent-amber:  #f0b429;
+  --accent-rose:   #e05c7a;
+}
+
+[data-theme="mastech"] body {
+  background: var(--bg-base);
+  font-family: 'Kumbh Sans', 'Inter', sans-serif;
+}
+
+[data-theme="mastech"] nav {
+  background: rgba(7,16,31,0.9) !important;
+  border-bottom-color: rgba(80,140,230,0.09) !important;
+}
+
+[data-theme="mastech"] aside {
+  background: rgba(11,18,34,0.85) !important;
+  border-right-color: rgba(80,140,230,0.07) !important;
+}
+
+[data-theme="mastech"] .card {
+  background: rgba(21,32,56,0.45);
+  border-color: rgba(80,140,230,0.1);
+}
+[data-theme="mastech"] .card:hover {
+  background: rgba(28,45,74,0.55);
+}
+
+[data-theme="mastech"] .gradient-text {
+  background: linear-gradient(135deg, #2db87c 0%, #5b9ee8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+[data-theme="mastech"] .glow-blue-top {
+  background: radial-gradient(ellipse, rgba(45,184,124,0.05) 0%, transparent 70%);
+}
+[data-theme="mastech"] .glow-violet-right {
+  background: radial-gradient(ellipse, rgba(91,158,232,0.04) 0%, transparent 70%);
+}
+
+[data-theme="mastech"] .stream-cursor::after { color: #2db87c; }
+
+[data-theme="mastech"] ::-webkit-scrollbar-thumb { background: rgba(80,140,230,0.15); }
+[data-theme="mastech"] ::-webkit-scrollbar-thumb:hover { background: rgba(80,140,230,0.28); }
+
+/* ── Grid bg pattern ──────────────────────────────────────────────────────── */
 /* Grid bg pattern */
 .grid-bg {
   background-image:
