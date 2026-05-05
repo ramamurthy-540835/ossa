@@ -404,18 +404,18 @@ def node_synthesize(state: MultiModelState) -> dict:
 
 def build_multi_model_graph() -> StateGraph:
     g = StateGraph(MultiModelState)
-    g.add_node("analyze",    node_analyze)
-    g.add_node("plan",       node_plan)
-    g.add_node("execute",    node_execute)
-    g.add_node("review",     node_review)
-    g.add_node("synthesize", node_synthesize)
+    g.add_node("analyzer",   node_analyze)
+    g.add_node("planner",    node_plan)
+    g.add_node("executor",   node_execute)
+    g.add_node("reviewer",   node_review)
+    g.add_node("synthesizer", node_synthesize)
 
-    g.set_entry_point("analyze")
-    g.add_edge("analyze",    "plan")
-    g.add_edge("plan",       "execute")
-    g.add_edge("execute",    "review")
-    g.add_edge("review",     "synthesize")
-    g.add_edge("synthesize", END)
+    g.set_entry_point("analyzer")
+    g.add_edge("analyzer",   "planner")
+    g.add_edge("planner",    "executor")
+    g.add_edge("executor",   "reviewer")
+    g.add_edge("reviewer",   "synthesizer")
+    g.add_edge("synthesizer", END)
 
     return g.compile()
 
