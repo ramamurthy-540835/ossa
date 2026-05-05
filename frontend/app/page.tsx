@@ -122,6 +122,17 @@ export default function Home() {
             📚 Docs
           </button>
 
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_URL || ''}/api/presentation/download`}
+            download
+            title="Download OSSA Presentation (PPTX)"
+            style={{ height: 32, padding: '0 12px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s', letterSpacing: '0.03em', textDecoration: 'none' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.18)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.08)' }}
+          >
+            📊 PPT
+          </a>
+
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}

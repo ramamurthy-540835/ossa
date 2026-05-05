@@ -694,6 +694,28 @@ async def get_doc(filename: str):
     return Response(content=content, media_type="text/plain; charset=utf-8")
 
 
+GCS_PRESENTATION_BUCKET = "agentproject"
+GCS_PRESENTATION_OBJECT = "Ram/Define-once-Execute-anywhere-Govern-automatically.pptx"
+GCS_PRESENTATION_FILENAME = "OSSA-Define-once-Execute-anywhere-Govern-automatically.pptx"
+
+@app.get("/api/presentation/download")
+async def download_presentation():
+    """Stream the OSSA presentation PPTX from GCS."""
+    try:
+        from google.cloud import storage as gcs
+        client = gcs.Client()
+        bucket = client.bucket(GCS_PRESENTATION_BUCKET)
+        blob = bucket.blob(GCS_PRESENTATION_OBJECT)
+        data = blob.download_as_bytes()
+        return Response(
+            content=data,
+            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            headers={"Content-Disposition": f'attachment; filename="{GCS_PRESENTATION_FILENAME}"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not fetch presentation: {e}")
+
+
 @app.get("/api/artifacts/{execution_id}/download")
 async def download_artifact(execution_id: str, fmt: str = "md"):
     """Download execution result as a file"""
