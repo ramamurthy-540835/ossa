@@ -56,10 +56,14 @@ export async function subscribeToEvents(
   onError?: (error: string) => void
 ): Promise<() => void> {
   const eventSource = new EventSource(`${API}/agent/events/${executionId}`)
+  let finished = false
 
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
+      if (data.type === 'execution_complete' || data.type === 'error') {
+        finished = true
+      }
       onEvent(data)
     } catch (error) {
       console.error('Failed to parse event:', error)
@@ -68,7 +72,10 @@ export async function subscribeToEvents(
 
   eventSource.onerror = () => {
     eventSource.close()
-    onError?.('Connection closed')
+    // Stream closing after execution_complete is normal — not an error
+    if (!finished) {
+      onError?.('Connection lost — please try again')
+    }
   }
 
   return () => eventSource.close()

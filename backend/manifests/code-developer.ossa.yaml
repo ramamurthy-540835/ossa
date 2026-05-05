@@ -53,7 +53,7 @@ spec:
     provider: gemini
     model: gemini-2.5-flash
     temperature: 0.2
-    maxTokens: 1024
+    maxTokens: 8192
 
   compliance:
     frameworks:
