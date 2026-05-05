@@ -10,10 +10,18 @@ import { ModelIntelligenceCard } from '@/components/ModelIntelligenceCard'
 
 const API_BASE = '/api'
 
+interface StageModels {
+  analyze_model: string
+  plan_model: string
+  execute_model: string
+  review_model: string
+}
+
 interface Props {
   manifest: OSSAManifest | null
   execution: ReturnType<typeof useExecution>
   onManifestUpdate?: (updated: OSSAManifest) => void
+  stageModels?: StageModels | null
 }
 
 const SAMPLE_PROMPTS: Record<string, string[]> = {
@@ -93,7 +101,7 @@ function manifestToEditForm(m: OSSAManifest): EditForm {
   }
 }
 
-export function ExecutionPanel({ manifest, execution, onManifestUpdate }: Props) {
+export function ExecutionPanel({ manifest, execution, onManifestUpdate, stageModels }: Props) {
   const [input, setInput] = useState('')
   const [hitlDone, setHitlDone] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -499,6 +507,7 @@ spec:
         manifest={manifest}
         input={input}
         onUseOutput={(output) => setMultiModelOutput(output)}
+        stageModels={stageModels}
       />
 
       {/* AI prompt suggester */}

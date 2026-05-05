@@ -755,6 +755,81 @@ async def get_audit_logs(execution_id: str = None):
 
 from ossa.multi_model_graph import MODEL_REGISTRY, TASK_TYPES, MULTI_MODEL_GRAPH
 
+# ── OSSA Settings (budget + multi-model stage config) ─────────────────────────
+import json as _json
+from pathlib import Path as _Path
+from datetime import date as _date
+
+_SETTINGS_FILE = _Path(__file__).parent / "ossa_settings.json"
+_DEFAULT_SETTINGS: dict = {
+    "budget": {
+        "total_credits": 10.00,
+        "credits_used": 0.0,
+        "daily_limit": 1.00,
+        "daily_used": 0.0,
+        "daily_reset_date": "",
+        "alert_threshold": 0.80,
+    },
+    "multi_model": {
+        "analyze_model": "gemini-2.5-flash",
+        "plan_model": "gemini-2.5-flash",
+        "execute_model": "auto",
+        "review_model": "gemini-2.5-flash",
+    },
+}
+
+def _load_settings() -> dict:
+    if _SETTINGS_FILE.exists():
+        try:
+            s = _json.loads(_SETTINGS_FILE.read_text())
+            # Auto-reset daily_used if date changed
+            today = str(_date.today())
+            if s.get("budget", {}).get("daily_reset_date") != today:
+                s["budget"]["daily_used"] = 0.0
+                s["budget"]["daily_reset_date"] = today
+                _SETTINGS_FILE.write_text(_json.dumps(s, indent=2))
+            return s
+        except Exception:
+            pass
+    s = {k: dict(v) for k, v in _DEFAULT_SETTINGS.items()}
+    s["budget"]["daily_reset_date"] = str(_date.today())
+    return s
+
+def _save_settings(s: dict) -> None:
+    _SETTINGS_FILE.write_text(_json.dumps(s, indent=2))
+
+@app.get("/api/settings")
+async def get_settings():
+    return _load_settings()
+
+@app.post("/api/settings")
+async def update_settings(payload: dict):
+    s = _load_settings()
+    for key, val in payload.items():
+        if key in s and isinstance(s[key], dict) and isinstance(val, dict):
+            s[key].update(val)
+        else:
+            s[key] = val
+    _save_settings(s)
+    return s
+
+@app.post("/api/settings/spend")
+async def record_spend(payload: dict):
+    amount = float(payload.get("amount", 0))
+    s = _load_settings()
+    s["budget"]["credits_used"] = round(s["budget"].get("credits_used", 0) + amount, 8)
+    s["budget"]["daily_used"] = round(s["budget"].get("daily_used", 0) + amount, 8)
+    _save_settings(s)
+    return s["budget"]
+
+@app.post("/api/settings/add-credits")
+async def add_credits(payload: dict):
+    amount = float(payload.get("amount", 5.0))
+    s = _load_settings()
+    s["budget"]["total_credits"] = round(s["budget"].get("total_credits", 0) + amount, 2)
+    _save_settings(s)
+    return s["budget"]
+
 @app.get("/api/models")
 async def list_models():
     """Return all models with pricing and capability metadata."""
@@ -841,6 +916,8 @@ async def execute_multi_model(payload: dict):
     import asyncio
     loop = asyncio.get_event_loop()
 
+    model_overrides = payload.get("model_overrides", {})
+
     def run_graph():
         state = {
             "input": user_input,
@@ -856,11 +933,23 @@ async def execute_multi_model(payload: dict):
             "models_used": [],
             "stage_events": [],
             "total_cost": 0.0,
+            "model_overrides": model_overrides,
         }
         result = MULTI_MODEL_GRAPH.invoke(state)
         return result
 
     result = await loop.run_in_executor(None, run_graph)
+
+    total_cost = result.get("total_cost", 0)
+    # Record spend automatically
+    if total_cost > 0:
+        try:
+            s = _load_settings()
+            s["budget"]["credits_used"] = round(s["budget"].get("credits_used", 0) + total_cost, 8)
+            s["budget"]["daily_used"] = round(s["budget"].get("daily_used", 0) + total_cost, 8)
+            _save_settings(s)
+        except Exception:
+            pass
 
     return {
         "execution_id": execution_id,
@@ -871,7 +960,7 @@ async def execute_multi_model(payload: dict):
         "output":            result.get("final_output"),
         "review_notes":      result.get("review_notes"),
         "models_used":       result.get("models_used", []),
-        "total_cost":        result.get("total_cost", 0),
+        "total_cost":        total_cost,
         "stage_events":      result.get("stage_events", []),
     }
 

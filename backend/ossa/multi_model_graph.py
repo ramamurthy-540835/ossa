@@ -209,17 +209,21 @@ class MultiModelState(TypedDict):
     models_used: Annotated[list, operator.add]
     stage_events: Annotated[list, operator.add]
     total_cost: float
+    # Optional overrides: {"analyze": "gemini-2.5-flash", "plan": ..., "execute": ..., "review": ...}
+    model_overrides: dict
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _gemini_call(prompt: str, system: str = "Return concise JSON only.",
-                 max_tokens: int = 512) -> str:
-    """Synchronous gemini-2.5-flash call with thinking disabled."""
+                 max_tokens: int = 512, model: str = "gemini-2.5-flash") -> str:
+    """Synchronous Gemini call with thinking disabled. Falls back to flash for non-Gemini IDs."""
     import os
     from providers.gemini import GeminiProvider
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
-    provider = GeminiProvider(api_key, "gemini-2.5-flash", thinking_budget=0)
+    # Only Gemini models can be used via this helper
+    use_model = model if MODEL_REGISTRY.get(model, {}).get("provider") == "gemini" else "gemini-2.5-flash"
+    provider = GeminiProvider(api_key, use_model, thinking_budget=0)
     result = provider.call_sync(system, prompt, temperature=0.1, max_tokens=max_tokens)
     return result.get("output", "") if result["status"] == "success" else ""
 
@@ -251,6 +255,8 @@ def _cost(model_id: str, in_tok: int, out_tok: int) -> float:
 
 def node_analyze(state: MultiModelState) -> dict:
     """Classify the task, estimate complexity and recommended model."""
+    overrides = state.get("model_overrides", {})
+    analyze_model = overrides.get("analyze", "gemini-2.5-flash")
     user_input = state["input"][:2000]
     task_list = list(TASK_TYPES.keys())
 
@@ -269,27 +275,33 @@ Return JSON:
   "key_requirements": ["...", "...", "..."]
 }}""",
         max_tokens=256,
+        model=analyze_model,
     )
     data = _parse_json(raw)
     task_type = data.get("task_type", "general")
     complexity = data.get("complexity", "medium")
     estimated = int(data.get("estimated_output_tokens", TASK_TYPES.get(task_type, {}).get("tokens", 2000)))
-    recommended = TASK_TYPES.get(task_type, {}).get("recommend", "gemini-2.5-flash")
+    # Respect execute override; otherwise use task-type recommendation
+    exec_override = overrides.get("execute", "auto")
+    recommended = (exec_override if exec_override and exec_override != "auto"
+                   else TASK_TYPES.get(task_type, {}).get("recommend", "gemini-2.5-flash"))
 
     return {
         "task_type": task_type,
         "complexity": complexity,
         "estimated_tokens": estimated,
         "recommended_model": recommended,
-        "stage_events": [{"stage": "analyze", "model": "gemini-2.5-flash",
+        "stage_events": [{"stage": "analyze", "model": analyze_model,
                           "task_type": task_type, "complexity": complexity,
                           "recommended": recommended, "estimated_tokens": estimated}],
-        "models_used": [{"stage": "analyze", "model": "gemini-2.5-flash", "cost": 0.0001}],
+        "models_used": [{"stage": "analyze", "model": analyze_model, "cost": 0.0001}],
     }
 
 
 def node_plan(state: MultiModelState) -> dict:
-    """Generate a step-by-step execution plan using fast model."""
+    """Generate a step-by-step execution plan using configured model."""
+    overrides = state.get("model_overrides", {})
+    plan_model = overrides.get("plan", "gemini-2.5-flash")
     raw = _gemini_call(
         f"""You are planning the execution of this task for an AI agent.
 
@@ -301,11 +313,12 @@ Create a concise step-by-step plan the executor should follow.
 Return as a plain numbered list (no JSON), max 8 steps.""",
         system="You are a task planning assistant. Be concise and specific.",
         max_tokens=512,
+        model=plan_model,
     )
     return {
         "plan": raw,
-        "stage_events": [{"stage": "plan", "model": "gemini-2.5-flash", "plan_preview": raw[:200]}],
-        "models_used": [{"stage": "plan", "model": "gemini-2.5-flash", "cost": 0.0002}],
+        "stage_events": [{"stage": "plan", "model": plan_model, "plan_preview": raw[:200]}],
+        "models_used": [{"stage": "plan", "model": plan_model, "cost": 0.0002}],
     }
 
 
@@ -357,7 +370,9 @@ Produce a complete, high-quality response following the plan above."""
 
 
 def node_review(state: MultiModelState) -> dict:
-    """Fast quality review — flag gaps, suggest what's missing."""
+    """Quality review using configured model."""
+    overrides = state.get("model_overrides", {})
+    review_model = overrides.get("review", "gemini-2.5-flash")
     raw = _gemini_call(
         f"""You are a quality reviewer for an AI agent response.
 
@@ -374,11 +389,12 @@ Provide a brief quality assessment (3-5 bullet points):
 - Overall quality: excellent / good / needs improvement""",
         system="You are a concise quality reviewer. Be direct and specific.",
         max_tokens=400,
+        model=review_model,
     )
     return {
         "review_notes": raw,
-        "stage_events": [{"stage": "review", "model": "gemini-2.5-flash", "review": raw[:300]}],
-        "models_used": [{"stage": "review", "model": "gemini-2.5-flash", "cost": 0.0001}],
+        "stage_events": [{"stage": "review", "model": review_model, "review": raw[:300]}],
+        "models_used": [{"stage": "review", "model": review_model, "cost": 0.0001}],
     }
 
 

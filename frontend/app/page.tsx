@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { OSSAManifest } from '@/lib/types/ossa'
 import { ManifestSelector } from '@/components/ManifestSelector'
 import { ExecutionPanel } from '@/components/ExecutionPanel'
@@ -10,17 +10,24 @@ import { GuidedTour } from '@/components/GuidedTour'
 import { DocsViewer } from '@/components/DocsViewer'
 import { useExecution } from '@/lib/hooks/useExecution'
 import { useTheme } from '@/lib/hooks/useTheme'
+import { SettingsModal, OSSASettings } from '@/components/SettingsModal'
 
 export default function Home() {
   const [selectedManifest, setSelectedManifest] = useState<OSSAManifest | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showTour, setShowTour] = useState(false)
   const [showDocs, setShowDocs] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [ossaSettings, setOssaSettings] = useState<OSSASettings | null>(null)
   const [preselectedTemplate, setPreselectedTemplate] = useState<string | undefined>(undefined)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const execution = useExecution()
   const { theme, toggle: toggleTheme } = useTheme()
+
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(setOssaSettings).catch(() => {})
+  }, [])
 
   const handleSelect = useCallback((manifest: OSSAManifest) => {
     setSelectedManifest(manifest)
@@ -29,6 +36,14 @@ export default function Home() {
 
   const cost = execution.costSummary?.cost?.estimated_usd ?? 0
   const tokens = execution.costSummary?.tokens?.total ?? 0
+
+  const creditsRemaining = ossaSettings
+    ? Math.max(0, ossaSettings.budget.total_credits - ossaSettings.budget.credits_used)
+    : null
+  const creditsTotal = ossaSettings?.budget.total_credits ?? 0
+  const creditsPct = creditsTotal > 0 && ossaSettings
+    ? Math.min(100, (ossaSettings.budget.credits_used / creditsTotal) * 100)
+    : 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative', zIndex: 1 }}>
@@ -78,6 +93,25 @@ export default function Home() {
 
         {/* Status + Tour + Docs */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Credit balance indicator */}
+          {creditsRemaining !== null && (
+            <button
+              onClick={() => setShowSettings(true)}
+              title="Open Settings — budget & multi-model pipeline"
+              style={{ height: 32, padding: '0 12px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', background: creditsPct > 80 ? 'rgba(239,68,68,0.08)' : 'rgba(52,211,153,0.08)', border: `1px solid ${creditsPct > 80 ? 'rgba(239,68,68,0.25)' : 'rgba(52,211,153,0.2)'}`, transition: 'all 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+            >
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Credits</span>
+              <div style={{ height: 14, width: 44, borderRadius: 999, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${100 - creditsPct}%`, background: creditsPct > 80 ? '#ef4444' : '#34d399', borderRadius: 999, transition: 'width 0.4s' }} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: creditsPct > 80 ? '#f87171' : '#34d399' }}>
+                ${creditsRemaining.toFixed(2)}
+              </span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowDocs(true)}
             title="Helper Docs — standards, VBC agents, K3s guide"
@@ -105,6 +139,15 @@ export default function Home() {
             {theme === 'mastech' ? 'Mastech' : 'OSSA'}
           </button>
 
+          <button
+            onClick={() => setShowSettings(true)}
+            title="Settings — budget, credits, multi-model pipeline"
+            style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.22)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.1)' }}
+          >
+            ⚙
+          </button>
           <button
             onClick={() => setShowTour(true)}
             title="Guided Tour — Aider / Codex / Claude agent styles"
@@ -191,6 +234,7 @@ export default function Home() {
             <ExecutionPanel
               manifest={selectedManifest}
               execution={execution}
+              stageModels={ossaSettings?.multi_model ?? null}
               onManifestUpdate={(updated) => {
                 setSelectedManifest(updated as any)
                 setRefreshKey(k => k + 1)
@@ -259,30 +303,48 @@ export default function Home() {
               ) : <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</p>}
             </div>
 
-            {/* Budget */}
-            {selectedManifest && (
-              <div style={{ padding: '14px', borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 10 }}>Daily Budget</p>
-                <p style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', marginBottom: 8 }}>${selectedManifest.cost?.daily}</p>
-                <div style={{ width: '100%', height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', borderRadius: 999,
-                    background: 'linear-gradient(90deg,#3b82f6,#8b5cf6)',
-                    width: `${Math.min(100, (cost / (selectedManifest.cost?.daily ?? 1)) * 100)}%`,
-                    transition: 'width 0.5s ease',
-                  }} />
-                </div>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 6, fontFamily: 'JetBrains Mono, monospace' }}>
-                  {((cost / (selectedManifest.cost?.daily ?? 1)) * 100).toFixed(4)}% used
-                </p>
-              </div>
-            )}
+            {/* Budget — show real credit balance */}
+            <div style={{ padding: '14px', borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }} onClick={() => setShowSettings(true)}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 10 }}>Daily Budget</p>
+              {ossaSettings ? (
+                <>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', marginBottom: 2, fontFamily: 'JetBrains Mono, monospace' }}>
+                    ${(ossaSettings.budget.daily_limit - ossaSettings.budget.daily_used).toFixed(4)}
+                  </p>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginBottom: 8 }}>
+                    of ${ossaSettings.budget.daily_limit.toFixed(2)} remaining today
+                  </p>
+                  <div style={{ width: '100%', height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 999,
+                      background: 'linear-gradient(90deg,#3b82f6,#8b5cf6)',
+                      width: `${Math.min(100, (ossaSettings.budget.daily_used / ossaSettings.budget.daily_limit) * 100)}%`,
+                      transition: 'width 0.5s ease',
+                    }} />
+                  </div>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 6, fontFamily: 'JetBrains Mono, monospace' }}>
+                    {ossaSettings.budget.daily_limit > 0 ? ((ossaSettings.budget.daily_used / ossaSettings.budget.daily_limit) * 100).toFixed(4) : '0.0000'}% used · click to manage
+                  </p>
+                </>
+              ) : selectedManifest ? (
+                <p style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 8 }}>${selectedManifest.cost?.daily ?? '—'}</p>
+              ) : (
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</p>
+              )}
+            </div>
 
           </div>
         </aside>
       </div>
 
       {showDocs && <DocsViewer onClose={() => setShowDocs(false)} />}
+
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onSettingsChange={(s) => setOssaSettings(s)}
+        />
+      )}
 
       {showTour && (
         <GuidedTour

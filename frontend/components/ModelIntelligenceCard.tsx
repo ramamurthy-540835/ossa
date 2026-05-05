@@ -38,10 +38,18 @@ interface MultiResult {
   total_cost: number
 }
 
+interface StageModels {
+  analyze_model: string
+  plan_model: string
+  execute_model: string
+  review_model: string
+}
+
 interface Props {
   manifest: OSSAManifest | null
   input: string
   onUseOutput: (output: string) => void
+  stageModels?: StageModels | null
 }
 
 const SPEED_STARS: Record<string, string> = {
@@ -63,7 +71,7 @@ function Stars({ n }: { n: number }) {
 }
 
 
-export function ModelIntelligenceCard({ manifest, input, onUseOutput }: Props) {
+export function ModelIntelligenceCard({ manifest, input, onUseOutput, stageModels }: Props) {
   const [models, setModels]           = useState<Record<string, ModelMeta>>({})
   const [analysis, setAnalysis]       = useState<TaskAnalysis | null>(null)
   const [analysing, setAnalysing]     = useState(false)
@@ -98,9 +106,15 @@ export function ModelIntelligenceCard({ manifest, input, onUseOutput }: Props) {
     if (!manifest || !input.trim()) return
     setRunning(true); setRunError(''); setMultiResult(null)
     try {
+      const model_overrides = stageModels ? {
+        analyze: stageModels.analyze_model,
+        plan:    stageModels.plan_model,
+        execute: stageModels.execute_model === 'auto' ? undefined : stageModels.execute_model,
+        review:  stageModels.review_model,
+      } : {}
       const res = await fetch(`${API}/agent/execute-multi`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manifest_name: manifest.name, input }),
+        body: JSON.stringify({ manifest_name: manifest.name, input, model_overrides }),
       })
       if (!res.ok) throw new Error((await res.json()).detail || 'Failed')
       const data = await res.json()
@@ -189,7 +203,7 @@ export function ModelIntelligenceCard({ manifest, input, onUseOutput }: Props) {
               {/* Model comparison table */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 60px 60px', gap: 8, padding: '4px 10px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  <span>Model</span><span>In / 1K</span><span>Out / 1K</span><span>Reason</span><span>Code</span>
+                  <span>Model</span><span>In / 1M</span><span>Out / 1M</span><span>Reason</span><span>Code</span>
                 </div>
                 {modelList.map(([id, m]) => {
                   const isCurrent  = id === currentModel
