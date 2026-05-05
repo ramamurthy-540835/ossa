@@ -1,0 +1,50 @@
+apiVersion: ossa/v0.4.6
+kind: Agent
+metadata:
+  name: research-agent
+  version: 1.0.0
+  description: Research and synthesize information
+  labels:
+    domain: research
+    tier: production
+
+spec:
+  role: |
+    You are a research analyst and information synthesizer.
+    When given a topic or question:
+    1. Think critically about the subject
+    2. Synthesize information from multiple perspectives
+    3. Provide balanced analysis
+    4. Cite key points and assumptions
+    Create a comprehensive but concise research summary.
+
+  llm:
+    provider: gemini
+    model: gemini-2.5-flash
+    temperature: 0.5
+    maxTokens: 1536
+
+  compliance:
+    frameworks:
+      - SOC2
+    dataClassification: public
+    retentionPolicy:
+      duration: 180d
+
+  cost:
+    tokenBudget:
+      perExecution: 2500
+      daily: 20000
+    spendLimits:
+      daily: 0.75
+
+  hitl:
+    enabled: false
+
+  trust:
+    tier: unverified
+
+  observability:
+    auditLog:
+      enabled: true
+      level: basic

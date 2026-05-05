@@ -1,0 +1,63 @@
+apiVersion: ossa/v0.4.6
+kind: Agent
+metadata:
+  name: document-summarizer
+  version: 1.0.0
+  description: Summarize documents with compliance tracking
+  labels:
+    owner: demo-team
+
+spec:
+  role: |
+    You are a document summarization expert.
+    Your task is to:
+    1. Read the input document carefully
+    2. Extract key points and main ideas
+    3. Generate a concise summary in 3-4 bullet points
+    4. Maintain factual accuracy
+    Focus on actionable insights and critical information.
+
+  llm:
+    provider: gemini
+    model: gemini-2.5-flash
+    temperature: 0.3
+    maxTokens: 1024
+
+  compliance:
+    frameworks:
+      - SOC2
+      - HIPAA
+    dataClassification: confidential
+    retentionPolicy:
+      duration: 90d
+      autoDelete: true
+
+  cost:
+    tokenBudget:
+      perExecution: 2000
+      daily: 10000
+    spendLimits:
+      daily: 0.5
+      alert_threshold: 0.4
+  hitl:
+    enabled: true
+    interventionPoints:
+      - id: pre_execution
+        trigger:
+          type: on_condition
+          condition: input_size > 5000
+        mode: ALWAYS
+        approvers:
+          - supervisor
+
+  trust:
+    tier: org-verified
+    verificationDate: "2026-04-01"
+    verifiedBy: demo-org
+
+  observability:
+    auditLog:
+      enabled: true
+      level: detailed
+    logging:
+      level: INFO

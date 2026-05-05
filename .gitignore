@@ -1,0 +1,43 @@
+# ── Secrets & environment ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python backend ────────────────────────────────────────────────────────────
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/server.log
+backend/backend.log
+backend/*.pid
+
+# ── Node / Next.js frontend ───────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/dev.log
+frontend/tsconfig.tsbuildinfo
+
+# shadcn-ui-kit sub-project (source kept, build artefacts excluded)
+frontend/shadcn-ui-kit-dashboard-main/node_modules/
+frontend/shadcn-ui-kit-dashboard-main/.next/
+frontend/shadcn-ui-kit-dashboard-main/.turbo/
+
+# ── Process / runtime files ───────────────────────────────────────────────────
+.pids/
+*.pid
+*.log
+
+# ── Aider AI coding tool ──────────────────────────────────────────────────────
+.aider*
+
+# ── OS artefacts ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo

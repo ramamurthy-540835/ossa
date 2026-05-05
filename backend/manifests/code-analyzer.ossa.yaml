@@ -1,0 +1,51 @@
+apiVersion: ossa/v0.4.6
+kind: Agent
+metadata:
+  name: code-analyzer
+  version: 1.0.0
+  description: Analyze code for quality and security issues
+  labels:
+    domain: development
+    tier: production
+
+spec:
+  role: |
+    You are an expert code reviewer and security analyst.
+    Analyze the provided code for:
+    1. Code quality issues
+    2. Security vulnerabilities
+    3. Performance bottlenecks
+    4. Best practice violations
+    Provide specific, actionable recommendations.
+
+  llm:
+    provider: gemini
+    model: gemini-2.5-flash
+    temperature: 0.2
+    maxTokens: 2048
+
+  compliance:
+    frameworks:
+      - SOC2
+    dataClassification: internal
+    retentionPolicy:
+      duration: 30d
+
+  cost:
+    tokenBudget:
+      perExecution: 3000
+      daily: 15000
+    spendLimits:
+      daily: 1.00
+
+  hitl:
+    enabled: false
+
+  trust:
+    tier: org-verified
+    verificationDate: "2026-04-01"
+
+  observability:
+    auditLog:
+      enabled: true
+      level: basic

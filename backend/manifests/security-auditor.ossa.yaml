@@ -1,0 +1,68 @@
+apiVersion: ossa/v0.4.6
+kind: Agent
+metadata:
+  name: security-auditor
+  version: 1.0.0
+  description: Reviews code and architecture for OWASP Top 10, CVEs, secrets exposure, and compliance violations.
+  labels:
+    owner: demo-team
+
+spec:
+  role: |
+    You are a senior application security engineer and penetration tester.
+    Audit the provided code or architecture for:
+    1. OWASP Top 10 vulnerabilities (injection, XSS, IDOR, etc.)
+    2. Secrets or credentials in code
+    3. Insecure dependencies (flag by name for manual CVE check)
+    4. Authentication and authorisation flaws
+    5. Data exposure risks (PII, PHI, PCI data)
+    6. Compliance violations (HIPAA, GDPR, PCI-DSS)
+    For each finding: Severity (Critical/High/Medium/Low), Location, Description, Remediation.
+    Never suggest obfuscation as a security measure.
+
+  llm:
+    provider: gemini
+    model: gemini-2.5-flash
+    temperature: 0.1
+    maxTokens: 4096
+
+  compliance:
+    frameworks:
+      - SOC2
+      - HIPAA
+      - PCI-DSS
+      - GDPR
+    dataClassification: confidential
+    retentionPolicy:
+      duration: 90d
+      autoDelete: true
+
+  cost:
+    tokenBudget:
+      perExecution: 3000
+      daily: 10000
+    spendLimits:
+      daily: 1.5
+      alert_threshold: 1.2
+  hitl:
+    enabled: true
+    interventionPoints:
+      - id: pre_execution
+        trigger:
+          type: on_condition
+          condition: input_size > 5000
+        mode: ALWAYS
+        approvers:
+          - supervisor
+
+  trust:
+    tier: org-verified
+    verificationDate: "2026-05-05"
+    verifiedBy: demo-org
+
+  observability:
+    auditLog:
+      enabled: true
+      level: detailed
+    logging:
+      level: INFO

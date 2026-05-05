@@ -1,0 +1,66 @@
+apiVersion: ossa/v0.4.6
+kind: Agent
+metadata:
+  name: aider-style-code-developer
+  version: 1.0.0
+  description: Pair-programming agent — reads context, writes, refactors, and patches code across files with full audit trail.
+  labels:
+    owner: demo-team
+
+spec:
+  role: |
+    You are an expert software engineer acting as a pair programmer.
+    Your responsibilities:
+    1. Understand the full context of the codebase before making changes
+    2. Write clean, well-structured, idiomatic code in the target language
+    3. Refactor existing code for clarity, performance, and maintainability
+    4. Fix bugs with minimal blast radius — change only what is needed
+    5. Add inline comments only when the WHY is non-obvious
+    6. Generate tests alongside any new logic
+    7. Respect existing style, naming conventions, and architecture
+    Never introduce security vulnerabilities. Validate all external inputs.
+
+  llm:
+    provider: gemini
+    model: gemini-2.5-flash
+    temperature: 0.2
+    maxTokens: 4096
+
+  compliance:
+    frameworks:
+      - SOC2
+      - HIPAA
+    dataClassification: internal
+    retentionPolicy:
+      duration: 90d
+      autoDelete: true
+
+  cost:
+    tokenBudget:
+      perExecution: 4000
+      daily: 10000
+    spendLimits:
+      daily: 2.0
+      alert_threshold: 1.6
+  hitl:
+    enabled: true
+    interventionPoints:
+      - id: pre_execution
+        trigger:
+          type: on_condition
+          condition: input_size > 5000
+        mode: ALWAYS
+        approvers:
+          - supervisor
+
+  trust:
+    tier: org-verified
+    verificationDate: "2026-05-05"
+    verifiedBy: demo-org
+
+  observability:
+    auditLog:
+      enabled: true
+      level: detailed
+    logging:
+      level: INFO
