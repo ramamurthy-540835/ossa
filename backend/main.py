@@ -700,20 +700,23 @@ GCS_PRESENTATION_FILENAME = "OSSA-Define-once-Execute-anywhere-Govern-automatica
 
 @app.get("/api/presentation/download")
 async def download_presentation():
-    """Stream the OSSA presentation PPTX from GCS."""
+    """Redirect to a short-lived signed URL for the OSSA PPTX in GCS."""
     try:
         from google.cloud import storage as gcs
+        from datetime import timedelta
         client = gcs.Client()
         bucket = client.bucket(GCS_PRESENTATION_BUCKET)
         blob = bucket.blob(GCS_PRESENTATION_OBJECT)
-        data = blob.download_as_bytes()
-        return Response(
-            content=data,
-            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            headers={"Content-Disposition": f'attachment; filename="{GCS_PRESENTATION_FILENAME}"'},
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=15),
+            method="GET",
+            response_disposition=f'attachment; filename="{GCS_PRESENTATION_FILENAME}"',
         )
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=signed_url, status_code=302)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Could not fetch presentation: {e}")
+        raise HTTPException(status_code=503, detail=f"Could not generate download link: {e}")
 
 
 @app.get("/api/artifacts/{execution_id}/download")
