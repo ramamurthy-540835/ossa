@@ -152,14 +152,14 @@ graph TD
 
     D -- No HITL Required --> F
     F --> G{Invoke LLM via LangChain Orchestrator}
-    G -- Streaming Response --> H[Stream Output to Frontend (SSE)]
+    G -- Streaming Response --> H["Stream Output to Frontend - SSE"]
     H --> I{Track Costs & Log Audit Events}
     I --> G
     G -- No More Chunks --> J[Execution Complete]
     J --> L[Finalize Results & Audit Log]
-    L --> [*]
+    L --> Z([End])
 
-    K --> [*]
+    K --> Z
 ```
 
 ### Deployment Architecture
@@ -168,22 +168,22 @@ The project is designed for local development, leveraging separate Node.js and P
 
 ```mermaid
 graph TD
-    subgraph Local Development
-        DevUser[Developer] --> FrontendProcess(Frontend: npm run dev --port 3001)
-        DevUser --> BackendProcess(Backend: python main.py)
+    subgraph LocalDev["Local Development"]
+        DevUser[Developer] --> FrontendProcess["Frontend: npm run dev --port 3001"]
+        DevUser --> BackendProcess["Backend: python main.py"]
         FrontendProcess -- API Calls --> BackendProcess
-        BackendProcess -- Reads/Writes --> LocalManifests[backend/manifests/*.ossa.yaml]
+        BackendProcess -- Reads/Writes --> LocalManifests["backend/manifests/*.ossa.yaml"]
         BackendProcess -- Uses --> LocalEnvFile[.env.local]
     end
 
-    subgraph Containerized Deployment (e.g., GCP)
-        CloudLoadBalancer[Cloud Load Balancer] --> FrontendContainer(Frontend: Docker Container)
-        FrontendContainer -- API Calls --> BackendContainer(Backend: Docker Container)
-        BackendContainer -- Reads/Writes --> PersistentStorage[Cloud Storage/Database for Manifests & Data]
+    subgraph CloudDeploy["Containerized Deployment - GCP"]
+        CloudLoadBalancer[Cloud Load Balancer] --> FrontendContainer["Frontend: Docker Container"]
+        FrontendContainer -- API Calls --> BackendContainer["Backend: Docker Container"]
+        BackendContainer -- Reads/Writes --> PersistentStorage["Cloud Storage for Manifests and Data"]
         BackendContainer -- Accesses --> SecretManager[Secret Manager for API Keys]
-        BackendContainer -- Communicates --> LLMCloudProvider[LLM Cloud Provider (e.g., Google AI)]
-        CI_CD[Cloud Build: cloudbuild.yaml] --> ImageRegistry[Container Registry]
-        ImageRegistry --> ContainerizedDeployment[Container Deployment Service (e.g., Cloud Run)]
+        BackendContainer -- Communicates --> LLMCloudProvider["LLM Cloud Provider - Google AI"]
+        CI_CD["Cloud Build: cloudbuild.yaml"] --> ImageRegistry[Container Registry]
+        ImageRegistry --> CloudRunService["Container Deployment Service - Cloud Run"]
     end
 ```
 
