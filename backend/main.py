@@ -580,7 +580,7 @@ Return ONLY a JSON array — no prose, no markdown fences:
 
 import os as _os
 
-DOCS_DIR = _os.path.join(_os.path.dirname(__file__), "..", "docs")
+DOCS_DIR = _os.path.join(_os.path.dirname(__file__), "docs")
 
 @app.post("/api/suggest-prompts")
 async def suggest_prompts(payload: dict):

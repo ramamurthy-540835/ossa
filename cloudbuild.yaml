@@ -25,11 +25,13 @@ steps:
     name: gcr.io/cloud-builders/docker
     args:
       - build
+      - -f
+      - backend/Dockerfile
       - -t
       - ${_REPO}/${_BACKEND_SVC}:$BUILD_ID
       - -t
       - ${_REPO}/${_BACKEND_SVC}:latest
-      - ./backend
+      - .
     waitFor: ['-']
 
   # ── 2. Backend — push ────────────────────────────────────────────────────────
