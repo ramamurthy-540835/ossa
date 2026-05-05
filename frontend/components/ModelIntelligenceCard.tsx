@@ -38,6 +38,32 @@ interface MultiResult {
   total_cost: number
 }
 
+interface LCChunk {
+  index: number
+  chars: number
+  preview: string
+}
+
+interface LCChunkOutput {
+  chunk_index: number
+  total_chunks: number
+  chars: number
+  summary: string
+}
+
+interface LCResult {
+  mode: string
+  chunks: number
+  chunk_outputs: LCChunkOutput[]
+  all_chunks: LCChunk[]
+  output: string
+  model_used: string
+  model_label: string
+  provider: string
+  input_chars: number
+  estimated_cost: number
+}
+
 interface StageModels {
   analyze_model: string
   plan_model: string
@@ -75,18 +101,28 @@ export function ModelIntelligenceCard({ manifest, input, onUseOutput, stageModel
   const [models, setModels]           = useState<Record<string, ModelMeta>>({})
   const [analysis, setAnalysis]       = useState<TaskAnalysis | null>(null)
   const [analysing, setAnalysing]     = useState(false)
-  const [multiResult, setMultiResult] = useState<MultiResult | null>(null)
-  const [running, setRunning]         = useState(false)
-  const [runError, setRunError]       = useState('')
-  const [expanded, setExpanded]       = useState(false)
-  const [activeTab, setActiveTab]     = useState<'compare' | 'multi'>('compare')
+  const [multiResult, setMultiResult]   = useState<MultiResult | null>(null)
+  const [running, setRunning]           = useState(false)
+  const [runError, setRunError]         = useState('')
+  const [expanded, setExpanded]         = useState(false)
+  const [activeTab, setActiveTab]       = useState<'compare' | 'multi' | 'langchain'>('compare')
+  const [lcResult, setLcResult]         = useState<LCResult | null>(null)
+  const [lcRunning, setLcRunning]       = useState(false)
+  const [lcError, setLcError]           = useState('')
+  const [lcMode, setLcMode]             = useState<'auto' | 'direct' | 'map_reduce' | 'refine'>('auto')
+  const [lcModel, setLcModel]           = useState('gemini-2.5-flash')
+  const [lcChunkSize, setLcChunkSize]   = useState(2000)
+  const [lcShowChunks, setLcShowChunks] = useState(false)
 
   useEffect(() => {
     fetch(`${API}/models`).then(r => r.json()).then(d => setModels(d.models ?? {})).catch(() => {})
   }, [])
 
   // Reset on manifest/input change
-  useEffect(() => { setAnalysis(null); setMultiResult(null); setRunError('') }, [manifest, input])
+  useEffect(() => {
+    setAnalysis(null); setMultiResult(null); setRunError('')
+    setLcResult(null); setLcError('')
+  }, [manifest, input])
 
   const analyseTask = useCallback(async () => {
     if (!input.trim()) return
@@ -123,7 +159,31 @@ export function ModelIntelligenceCard({ manifest, input, onUseOutput, stageModel
     } catch (e) {
       setRunError(e instanceof Error ? e.message : 'Error')
     } finally { setRunning(false) }
-  }, [manifest, input])
+  }, [manifest, input, stageModels])
+
+  const runLangChain = useCallback(async () => {
+    if (!input.trim()) return
+    setLcRunning(true); setLcError(''); setLcResult(null)
+    try {
+      const res = await fetch(`${API}/agent/execute-langchain`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          manifest_name: manifest?.name ?? '',
+          input,
+          model_id: lcModel,
+          mode: lcMode,
+          chunk_size: lcChunkSize,
+          chunk_overlap: Math.round(lcChunkSize * 0.1),
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).detail || 'Failed')
+      const data: LCResult = await res.json()
+      setLcResult(data)
+      setActiveTab('langchain')
+    } catch (e) {
+      setLcError(e instanceof Error ? e.message : 'Error')
+    } finally { setLcRunning(false) }
+  }, [manifest, input, lcModel, lcMode, lcChunkSize])
 
   const modelList = Object.entries(models)
   const currentModel = manifest?.model ?? ''
@@ -171,7 +231,11 @@ export function ModelIntelligenceCard({ manifest, input, onUseOutput, stageModel
 
           {/* Tab bar */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            {([['compare', '⊞ Compare Models'], ['multi', '⚡ Multi-Model Run']] as const).map(([id, label]) => (
+            {([
+              ['compare',   '⊞ Compare Models'],
+              ['multi',     '⚡ Multi-Model Run'],
+              ['langchain', '🔗 LangChain'],
+            ] as const).map(([id, label]) => (
               <button key={id} onClick={() => setActiveTab(id)}
                 style={{ padding: '7px 16px', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === id ? '#a78bfa' : 'transparent'}`, color: activeTab === id ? '#a78bfa' : 'rgba(255,255,255,0.3)', transition: 'all 0.15s' }}>
                 {label}
@@ -338,6 +402,147 @@ export function ModelIntelligenceCard({ manifest, input, onUseOutput, stageModel
                       <pre style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{multiResult.review_notes}</pre>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── LangChain tab ── */}
+          {activeTab === 'langchain' && (
+            <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+              {/* Config row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: 8 }}>
+                {/* Model picker */}
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Model</p>
+                  <select value={lcModel} onChange={e => setLcModel(e.target.value)}
+                    style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none', fontFamily: 'inherit' }}>
+                    {Object.entries(models).map(([id, m]) => (
+                      <option key={id} value={id}>{m.badge} {m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Mode picker */}
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Pipeline mode</p>
+                  <select value={lcMode} onChange={e => setLcMode(e.target.value as typeof lcMode)}
+                    style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none', fontFamily: 'inherit' }}>
+                    <option value="auto">✦ auto (smart)</option>
+                    <option value="direct">direct — single call</option>
+                    <option value="map_reduce">map-reduce — parallel chunks</option>
+                    <option value="refine">refine — iterative quality</option>
+                  </select>
+                </div>
+                {/* Chunk size */}
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Chunk size</p>
+                  <input type="number" min={500} max={8000} step={500} value={lcChunkSize}
+                    onChange={e => setLcChunkSize(parseInt(e.target.value) || 2000)}
+                    style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none', fontFamily: 'inherit' }}
+                  />
+                </div>
+              </div>
+
+              {/* Mode descriptions */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                {([
+                  ['auto',       '✦', 'Smart', 'Picks mode by input length'],
+                  ['direct',     '→', 'Direct', 'Single prompt, short inputs'],
+                  ['map_reduce', '⊞', 'Map-Reduce', 'Chunk→summarise→combine'],
+                  ['refine',     '◎', 'Refine', 'Iterative, best quality'],
+                ] as const).map(([m, icon, name, desc]) => (
+                  <div key={m} onClick={() => setLcMode(m)}
+                    style={{ padding: '7px 9px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${lcMode === m ? 'rgba(167,139,250,0.4)' : 'rgba(255,255,255,0.06)'}`, background: lcMode === m ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.02)', transition: 'all 0.15s' }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: lcMode === m ? '#c4b5fd' : '#e2e8f0', marginBottom: 2 }}>{icon} {name}</p>
+                    <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', lineHeight: 1.4 }}>{desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Preview chunks before running */}
+              {input.trim() && (
+                <div style={{ padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Input: {input.length} chars</span>
+                  <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)' }}>·</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                    ~{Math.max(1, Math.ceil(input.length / lcChunkSize))} chunk{Math.ceil(input.length / lcChunkSize) === 1 ? '' : 's'} @ {lcChunkSize} chars
+                  </span>
+                  <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)' }}>·</span>
+                  <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 600 }}>
+                    {input.length <= lcChunkSize ? 'will use: direct' : input.length <= lcChunkSize * 6 ? 'will use: map-reduce' : 'will use: refine'}
+                    {lcMode !== 'auto' ? ` (overridden → ${lcMode})` : ''}
+                  </span>
+                </div>
+              )}
+
+              {/* Run button */}
+              <button
+                onClick={runLangChain}
+                disabled={lcRunning || !input.trim()}
+                style={{ padding: '9px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: lcRunning || !input.trim() ? 'not-allowed' : 'pointer', background: 'linear-gradient(135deg,#6366f1,#a78bfa)', color: '#fff', border: 'none', opacity: lcRunning || !input.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                {lcRunning
+                  ? <><span style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Running LangChain…</>
+                  : '🔗 Run LangChain Pipeline'}
+              </button>
+
+              {lcError && (
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', fontSize: 11, color: '#fca5a5' }}>⚠ {lcError}</div>
+              )}
+
+              {/* Results */}
+              {lcResult && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+                  {/* Stats bar */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Mode', val: lcResult.mode.replace('_', '-'), color: '#a78bfa' },
+                      { label: 'Chunks', val: String(lcResult.chunks), color: '#60a5fa' },
+                      { label: 'Model', val: lcResult.model_label, color: '#34d399' },
+                      { label: 'Est. cost', val: `$${lcResult.estimated_cost.toFixed(5)}`, color: '#fbbf24' },
+                    ].map(({ label, val, color }) => (
+                      <div key={label} style={{ padding: '3px 10px', borderRadius: 7, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>{label}: </span>
+                        <span style={{ fontSize: 10, color, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Chunk map */}
+                  {lcResult.all_chunks.length > 1 && (
+                    <div>
+                      <button onClick={() => setLcShowChunks(x => !x)}
+                        style={{ fontSize: 10, fontWeight: 700, color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 4px' }}>
+                        {lcShowChunks ? '▾' : '▸'} {lcResult.all_chunks.length} chunks {lcShowChunks ? '(hide)' : '(show)'}
+                      </button>
+                      {lcShowChunks && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {lcResult.all_chunks.map(c => (
+                            <div key={c.index} style={{ display: 'flex', gap: 8, padding: '5px 9px', borderRadius: 7, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', alignItems: 'flex-start' }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: '#60a5fa', minWidth: 24, flexShrink: 0 }}>#{c.index}</span>
+                              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', minWidth: 50, flexShrink: 0 }}>{c.chars} chars</span>
+                              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>{c.preview}…</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Final output */}
+                  <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <p style={{ fontSize: 9, fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>LangChain Output</p>
+                      <button
+                        onClick={() => onUseOutput(lcResult.output)}
+                        style={{ padding: '3px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: 'pointer', background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                        Use this output ↑
+                      </button>
+                    </div>
+                    <pre style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, maxHeight: 280, overflow: 'auto' }}>{lcResult.output}</pre>
+                  </div>
                 </div>
               )}
             </div>

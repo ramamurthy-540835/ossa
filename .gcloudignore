@@ -1,0 +1,27 @@
+.git
+.gitignore
+README.md
+IMPLEMENTATION_SUMMARY.md
+docs/
+start.sh
+.pids/
+
+# backend runtime artifacts
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/server.log
+backend/*.log
+backend/.env.local
+backend/ossa_settings.json
+backend/test_*.py
+backend/*.sh
+
+# frontend build artifacts and heavy dirs
+frontend/node_modules/
+frontend/.next/
+frontend/dev.log
+frontend/.env.local
+frontend/tsconfig.tsbuildinfo
+frontend/shadcn-ui-kit-dashboard-main/

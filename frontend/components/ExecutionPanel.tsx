@@ -7,6 +7,8 @@ import { PROVIDERS, COMPLIANCE_OPTIONS, DATA_CLASSIFICATIONS, TRUST_TIERS, getPr
 import { ComplianceChip } from '@/components/ComplianceChip'
 import { useCustomCompliance } from '@/lib/hooks/useCustomCompliance'
 import { ModelIntelligenceCard } from '@/components/ModelIntelligenceCard'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 const API_BASE = '/api'
 
@@ -292,6 +294,11 @@ export function ExecutionPanel({ manifest, execution, onManifestUpdate, stageMod
     }
   }
 
+  function handleDownloadYaml() {
+    if (!manifest) return
+    window.open(`${API_BASE}/manifests/${manifest.name}/yaml`, '_blank')
+  }
+
   function handleShare() {
     if (!responseText) return
     const subject = encodeURIComponent(`OSSA Agent Result: ${manifest?.name ?? 'agent'}`)
@@ -445,6 +452,15 @@ spec:
           onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)' }}
         >
           Edit
+        </button>
+        <button
+          onClick={handleDownloadYaml}
+          title="Download agent YAML manifest"
+          style={{ padding: '5px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(52,211,153,0.08)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)', transition: 'all 0.15s' }}
+          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'rgba(52,211,153,0.18)' }}
+          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'rgba(52,211,153,0.08)' }}
+        >
+          ↓ YAML
         </button>
       </div>
 
@@ -627,9 +643,43 @@ spec:
             <span style={{ fontSize: 11, color: '#34d399', fontWeight: 600 }}>✓ {responseText.length} chars · {elapsed}s</span>
           )}
         </div>
-        <div ref={responseRef} style={{ padding: '16px', minHeight: 140, maxHeight: 300, overflowY: 'auto', fontSize: 14, lineHeight: 1.8, color: responseText ? '#e2e8f0' : 'rgba(255,255,255,0.2)' }}>
+        <div ref={responseRef} style={{ padding: '16px 20px', minHeight: 140, maxHeight: 560, overflowY: 'auto' }}>
           {responseText ? (
-            <span className={isLoading ? 'stream-cursor' : ''}>{responseText}</span>
+            <div className={isLoading ? 'stream-cursor' : ''}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ children }) => <h1 style={{ fontSize: 20, fontWeight: 800, color: '#f1f5f9', marginBottom: 12, marginTop: 20, letterSpacing: '-0.03em', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 8 }}>{children}</h1>,
+                  h2: ({ children }) => <h2 style={{ fontSize: 17, fontWeight: 700, color: '#e2e8f0', marginBottom: 10, marginTop: 18, letterSpacing: '-0.02em' }}>{children}</h2>,
+                  h3: ({ children }) => <h3 style={{ fontSize: 14, fontWeight: 700, color: '#c7d2fe', marginBottom: 8, marginTop: 14 }}>{children}</h3>,
+                  h4: ({ children }) => <h4 style={{ fontSize: 13, fontWeight: 700, color: '#a5b4fc', marginBottom: 6, marginTop: 12 }}>{children}</h4>,
+                  p: ({ children }) => <p style={{ fontSize: 14, lineHeight: 1.8, color: '#e2e8f0', marginBottom: 12 }}>{children}</p>,
+                  ul: ({ children }) => <ul style={{ paddingLeft: 20, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ul>,
+                  ol: ({ children }) => <ol style={{ paddingLeft: 22, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ol>,
+                  li: ({ children }) => <li style={{ fontSize: 14, lineHeight: 1.7, color: '#e2e8f0' }}>{children}</li>,
+                  strong: ({ children }) => <strong style={{ color: '#f1f5f9', fontWeight: 700 }}>{children}</strong>,
+                  em: ({ children }) => <em style={{ color: '#c7d2fe' }}>{children}</em>,
+                  code: ({ className, children, ...props }) => {
+                    const isBlock = className?.startsWith('language-')
+                    return isBlock ? (
+                      <code style={{ display: 'block', padding: '14px 16px', borderRadius: 10, background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 12.5, lineHeight: 1.75, fontFamily: 'JetBrains Mono, Consolas, monospace', color: '#a5f3fc', overflowX: 'auto', whiteSpace: 'pre' }} {...props}>{children}</code>
+                    ) : (
+                      <code style={{ padding: '2px 7px', borderRadius: 5, background: 'rgba(99,102,241,0.15)', color: '#c7d2fe', fontSize: 12.5, fontFamily: 'JetBrains Mono, Consolas, monospace' }} {...props}>{children}</code>
+                    )
+                  },
+                  pre: ({ children }) => <pre style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden' }}>{children}</pre>,
+                  blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid rgba(99,102,241,0.5)', paddingLeft: 14, margin: '12px 0', color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>{children}</blockquote>,
+                  table: ({ children }) => <div style={{ overflowX: 'auto', marginBottom: 14 }}><table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>{children}</table></div>,
+                  thead: ({ children }) => <thead style={{ background: 'rgba(99,102,241,0.1)' }}>{children}</thead>,
+                  th: ({ children }) => <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#a5b4fc', borderBottom: '1px solid rgba(99,102,241,0.2)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{children}</th>,
+                  td: ({ children }) => <td style={{ padding: '8px 12px', color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>{children}</td>,
+                  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', textDecoration: 'underline', textDecorationColor: 'rgba(96,165,250,0.4)' }}>{children}</a>,
+                  hr: () => <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)', margin: '16px 0' }} />,
+                }}
+              >
+                {responseText}
+              </ReactMarkdown>
+            </div>
           ) : isLoading ? (
             <div style={{ display: 'flex', gap: 5, alignItems: 'center', padding: '8px 0' }}>
               {[0,1,2].map(i => (
@@ -638,7 +688,7 @@ spec:
               <span style={{ marginLeft: 6, fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Waiting for model response…</span>
             </div>
           ) : (
-            'Response will appear here after execution…'
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.2)' }}>Response will appear here after execution…</p>
           )}
         </div>
 

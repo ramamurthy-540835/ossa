@@ -48,6 +48,21 @@ async def list_manifests():
     }
 
 
+@app.get("/api/manifests/{manifest_name}/yaml")
+async def download_manifest_yaml(manifest_name: str):
+    """Return the raw OSSA YAML manifest file for download."""
+    from fastapi.responses import Response as FastAPIResponse
+    yaml_path = settings.manifests_dir / f"{manifest_name}.ossa.yaml"
+    if not yaml_path.exists():
+        raise HTTPException(status_code=404, detail=f"Manifest not found: {manifest_name}")
+    content = yaml_path.read_text()
+    return FastAPIResponse(
+        content=content,
+        media_type="text/yaml",
+        headers={"Content-Disposition": f'attachment; filename="{manifest_name}.ossa.yaml"'},
+    )
+
+
 @app.get("/api/manifests/{manifest_name}")
 async def get_manifest(manifest_name: str):
     """Get manifest details"""
@@ -903,9 +918,7 @@ async def execute_multi_model(payload: dict):
     if not manifest_name or not user_input.strip():
         raise HTTPException(status_code=422, detail="manifest_name and input required")
 
-    from ossa.manifest import ManifestLoader
-    loader = ManifestLoader(settings.manifests_dir)
-    manifest = loader.load(manifest_name)
+    manifest = executor.get_manifest(manifest_name)
     if not manifest:
         raise HTTPException(status_code=404, detail=f"Manifest not found: {manifest_name}")
 
@@ -921,7 +934,7 @@ async def execute_multi_model(payload: dict):
     def run_graph():
         state = {
             "input": user_input,
-            "system_role": manifest.role or "",
+            "system_role": manifest.spec.role or "",
             "task_type": "",
             "complexity": "",
             "recommended_model": "gemini-2.5-flash",
@@ -962,6 +975,71 @@ async def execute_multi_model(payload: dict):
         "models_used":       result.get("models_used", []),
         "total_cost":        total_cost,
         "stage_events":      result.get("stage_events", []),
+    }
+
+
+@app.post("/api/agent/execute-langchain")
+async def execute_langchain(payload: dict):
+    """
+    LangChain orchestration with automatic chunking and map-reduce / refine pipelines.
+    Supports: direct (short), map_reduce (medium), refine (long documents).
+    """
+    manifest_name = payload.get("manifest_name", "")
+    user_input    = payload.get("input", "")
+    model_id      = payload.get("model_id", "gemini-2.5-flash")
+    mode          = payload.get("mode", "auto")       # auto | direct | map_reduce | refine
+    chunk_size    = int(payload.get("chunk_size", 2000))
+    chunk_overlap = int(payload.get("chunk_overlap", 200))
+
+    if not user_input.strip():
+        raise HTTPException(status_code=422, detail="input required")
+
+    manifest    = executor.get_manifest(manifest_name) if manifest_name else None
+    system_role = manifest.spec.role if manifest else "You are a helpful AI assistant."
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+
+    def _run():
+        from ossa.langchain_orchestrator import run_langchain
+        return run_langchain(
+            user_input=user_input,
+            system_role=system_role,
+            model_id=model_id,
+            temperature=0.2,
+            mode=mode,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+
+    result = await loop.run_in_executor(None, _run)
+
+    # Record spend
+    from ossa.multi_model_graph import MODEL_REGISTRY
+    meta        = MODEL_REGISTRY.get(model_id, {})
+    # Rough cost estimate: ~500 tokens in + 1500 out per chunk
+    chunks_n    = result.get("chunks", 1)
+    est_cost    = chunks_n * ((500 / 1000) * meta.get("cost_in", 0.00015)
+                              + (1500 / 1000) * meta.get("cost_out", 0.00060))
+    try:
+        s = _load_settings()
+        s["budget"]["credits_used"] = round(s["budget"].get("credits_used", 0) + est_cost, 8)
+        s["budget"]["daily_used"]   = round(s["budget"].get("daily_used", 0) + est_cost, 8)
+        _save_settings(s)
+    except Exception:
+        pass
+
+    return {
+        "mode":          result["mode"],
+        "chunks":        result["chunks"],
+        "chunk_outputs": result.get("chunk_outputs", []),
+        "all_chunks":    result.get("all_chunks", []),
+        "output":        result["output"],
+        "model_used":    result["model_used"],
+        "model_label":   result.get("model_label", model_id),
+        "provider":      result.get("provider", "gemini"),
+        "input_chars":   result.get("input_chars", len(user_input)),
+        "estimated_cost": round(est_cost, 6),
     }
 
 

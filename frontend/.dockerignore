@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+.env.local
+dev.log
+*.log
+shadcn-ui-kit-dashboard-main/
+.git
+tsconfig.tsbuildinfo

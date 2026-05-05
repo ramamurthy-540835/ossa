@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+server.log
+*.log
+.pids/
+test_*.py
+*.sh
+ossa_settings.json
+.git
